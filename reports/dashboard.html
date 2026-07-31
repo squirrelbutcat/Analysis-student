@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Дашборд: соцсети и ментальное здоровье студентов</title>
+    <style>
+        :root {
+            --bg: #f6f4ef;
+            --ink: #17211d;
+            --muted: #66736d;
+            --panel: #ffffff;
+            --line: #d9ded7;
+            --accent: #197278;
+            --accent-2: #c44536;
+            --accent-3: #283d3b;
+            --soft: #e8f2ef;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.5;
+        }
+        header {
+            background: #17211d;
+            color: #fff;
+            padding: 48px 24px 54px;
+        }
+        .wrap {
+            width: min(1180px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+        .eyebrow {
+            color: #9bd1ca;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+        h1 {
+            max-width: 900px;
+            margin: 0;
+            font-size: clamp(34px, 5vw, 64px);
+            line-height: 1.02;
+            letter-spacing: 0;
+        }
+        main { padding: 24px 0 48px; }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: -28px;
+        }
+        .metric {
+            min-height: 132px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 14px 34px rgba(23, 33, 29, .08);
+        }
+        .metric span, .metric small {
+            display: block;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .metric strong {
+            display: block;
+            margin: 10px 0 6px;
+            color: var(--accent-3);
+            font-size: 30px;
+            line-height: 1;
+        }
+        .section-title {
+            margin: 32px 0 14px;
+            font-size: 24px;
+        }
+        .insights {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .insight, .panel, .chart-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+        .insight {
+            padding: 18px;
+            border-left: 5px solid var(--accent);
+            min-height: 116px;
+        }
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .chart-card { padding: 14px; }
+        .chart-card h3, .panel h2 {
+            margin: 0 0 12px;
+            font-size: 17px;
+        }
+        .chart-card img {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            border: 1px solid #edf0ec;
+        }
+        .tables {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .panel { padding: 16px; overflow: auto; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .data-table th {
+            text-align: left;
+            color: var(--accent-3);
+            background: var(--soft);
+        }
+        .data-table th, .data-table td {
+            padding: 9px 8px;
+            border-bottom: 1px solid var(--line);
+        }
+        footer {
+            color: var(--muted);
+            padding-top: 10px;
+            font-size: 13px;
+        }
+        @media (max-width: 980px) {
+            .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .insights, .tables { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 760px) {
+            header { padding-top: 32px; }
+            .metrics, .charts { grid-template-columns: 1fr; }
+            .metrics { margin-top: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="wrap">
+            <h1>Социальные сети и ментальное здоровье студентов</h1>
+        </div>
+    </header>
+    <main class="wrap">
+        <section class="metrics">
+            
+        <article class="metric">
+            <span>Наблюдений</span>
+            <strong>5 000</strong>
+            <small>строк в датасете</small>
+        </article>
+    
+        <article class="metric">
+            <span>Соцсети</span>
+            <strong>5.08 ч</strong>
+            <small>в среднем в день</small>
+        </article>
+    
+        <article class="metric">
+            <span>Разблокировки</span>
+            <strong>171.5</strong>
+            <small>в среднем в день</small>
+        </article>
+    
+        <article class="metric">
+            <span>Сон</span>
+            <strong>6.63 ч</strong>
+            <small>в среднем в сутки</small>
+        </article>
+    
+        <article class="metric">
+            <span>Учеба</span>
+            <strong>3.01 ч</strong>
+            <small>в среднем в день</small>
+        </article>
+    
+        <article class="metric">
+            <span>Ментальное здоровье</span>
+            <strong>6.23</strong>
+            <small>средний показатель</small>
+        </article>
+    
+        </section>
+
+        <h2 class="section-title">Ключевые наблюдения</h2>
+        <section class="insights">
+            <article class="insight">Самая популярная платформа в выборке - Instagram: 1130 студентов.</article><article class="insight">Высокий или очень высокий стресс отмечен у 61.2% студентов.</article><article class="insight">Самая частая категория стресса - Very High: 32.4% выборки.</article><article class="insight">В выборке видно сильную отрицательную связь: чем больше времени в соцсетях, тем ниже сон (-0.808) и показатель ментального здоровья (-0.816).</article><article class="insight">Больше времени в соцсетях связано с меньшим временем учебы: корреляция -0.879.</article><article class="insight">Медианное время в соцсетях - 5.0 часа; 6+ часов набирают 31.9% студентов.</article><article class="insight">Самая сильная связь среди ключевых числовых показателей: Соцсети, часов в день и Разблокировки телефона в день (0.960).</article>
+        </section>
+
+        <h2 class="section-title">Графики</h2>
+        <section class="charts">
+            
+            <article class="chart-card">
+                <h3>Уровень стресса</h3>
+                <img src="figures/stress_level_donut.png" alt="Уровень стресса">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Цели использования</h3>
+                <img src="figures/purpose_of_use_donut.png" alt="Цели использования">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Корреляции</h3>
+                <img src="figures/key_correlations_heatmap.png" alt="Корреляции">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Распределение времени в соцсетях</h3>
+                <img src="figures/usage_hours_distribution.png" alt="Распределение времени в соцсетях">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Популярные платформы</h3>
+                <img src="figures/platform_distribution.png" alt="Популярные платформы">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Сон и ментальное здоровье</h3>
+                <img src="figures/sleep_vs_mental_health.png" alt="Сон и ментальное здоровье">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Соцсети и ментальное здоровье</h3>
+                <img src="figures/usage_vs_mental_health.png" alt="Соцсети и ментальное здоровье">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Соцсети и учеба</h3>
+                <img src="figures/usage_vs_study_hours.png" alt="Соцсети и учеба">
+            </article>
+            
+            <article class="chart-card">
+                <h3>Активность и ментальное здоровье</h3>
+                <img src="figures/activity_vs_mental_health.png" alt="Активность и ментальное здоровье">
+            </article>
+            
+        </section>
+
+        <h2 class="section-title">Распределения</h2>
+        <section class="tables">
+            
+                <section class="panel">
+                    <h2>Платформа</h2>
+                    <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Платформа</th>
+      <th>Количество</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Instagram</td>
+      <td>1130</td>
+    </tr>
+    <tr>
+      <td>TikTok</td>
+      <td>918</td>
+    </tr>
+    <tr>
+      <td>Facebook</td>
+      <td>719</td>
+    </tr>
+    <tr>
+      <td>LinkedIn</td>
+      <td>523</td>
+    </tr>
+    <tr>
+      <td>YouTube</td>
+      <td>491</td>
+    </tr>
+    <tr>
+      <td>Twitter</td>
+      <td>462</td>
+    </tr>
+  </tbody>
+</table>
+                </section>
+                
+                <section class="panel">
+                    <h2>Уровень стресса</h2>
+                    <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Уровень стресса</th>
+      <th>Количество</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Very High</td>
+      <td>1621</td>
+    </tr>
+    <tr>
+      <td>High</td>
+      <td>1440</td>
+    </tr>
+    <tr>
+      <td>Medium</td>
+      <td>1295</td>
+    </tr>
+    <tr>
+      <td>Low</td>
+      <td>644</td>
+    </tr>
+  </tbody>
+</table>
+                </section>
+                
+                <section class="panel">
+                    <h2>Цель использования</h2>
+                    <table class="dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Цель использования</th>
+      <th>Количество</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Entertainment</td>
+      <td>2552</td>
+    </tr>
+    <tr>
+      <td>Education</td>
+      <td>1094</td>
+    </tr>
+    <tr>
+      <td>Networking</td>
+      <td>793</td>
+    </tr>
+    <tr>
+      <td>News</td>
+      <td>561</td>
+    </tr>
+  </tbody>
+</table>
+                </section>
+                
+        </section>
+
+        <footer>Источник данных: data/raw/Student Social Media And Mental Health Impact.csv.</footer>
+    </main>
+</body>
+</html>
