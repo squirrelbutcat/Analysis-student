@@ -4,8 +4,6 @@ __pycache__/
 .DS_Store
 data/raw/*
 data/processed/*
-reports/*.md
-reports/figures/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !reports/figures/.gitkeep
