@@ -2,26 +2,19 @@ from __future__ import annotations
 
 import argparse
 from html import escape
-import os
 import re
 from pathlib import Path
 from typing import Iterable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-os.environ.setdefault("MPLCONFIGDIR", str(PROJECT_ROOT / ".matplotlib_cache"))
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+import numpy as np
 import pandas as pd
-import seaborn as sns
+import plotly.graph_objects as go
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 REPORTS_DIR = PROJECT_ROOT / "reports"
-FIGURES_DIR = REPORTS_DIR / "figures"
 
 
 DISPLAY_NAMES = {
@@ -212,78 +205,209 @@ def save_summary_tables(df: pd.DataFrame, columns: dict[str, str | None]) -> dic
     return outputs
 
 
-def style_current_axes() -> None:
-    ax = plt.gca()
-    ax.set_facecolor(CHART_PANEL)
-    ax.tick_params(colors=CHART_MUTED)
-    ax.xaxis.label.set_color(CHART_MUTED)
-    ax.yaxis.label.set_color(CHART_MUTED)
-    ax.title.set_color(CHART_TEXT)
-    for spine in ax.spines.values():
-        spine.set_color(CHART_GRID)
+FONT_FAMILY = "Avenir Next, Avenir, Optima, Candara, 'Segoe UI', sans-serif"
 
 
-def save_current_figure(path: Path) -> None:
-    style_current_axes()
-    plt.tight_layout()
-    plt.savefig(path, dpi=160, facecolor=CHART_BG, edgecolor="none")
-    plt.close()
+def hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.lstrip("#")
+    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))
 
 
-def save_pie_chart(counts: pd.Series, title: str, path: Path) -> None:
-    values = counts.values
+def rgb_to_hex(rgb: tuple[float, float, float]) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*(max(0, min(255, round(channel))) for channel in rgb))
+
+
+def color_ramp(base_hex: str, n: int, light_hex: str = "#eaf2ee") -> list[str]:
+    """Colors ordered from `base_hex` (index 0) fading to `light_hex`, for series sorted by size."""
+    if n <= 1:
+        return [base_hex]
+    base = hex_to_rgb(base_hex)
+    light = hex_to_rgb(light_hex)
+    return [
+        rgb_to_hex(tuple(base[c] + (light[c] - base[c]) * i / (n - 1) for c in range(3)))
+        for i in range(n)
+    ]
+
+
+def gaussian_kde_line(values: np.ndarray, bins: int) -> tuple[np.ndarray, np.ndarray] | None:
+    values = values[~np.isnan(values)]
+    n = values.size
+    std = values.std(ddof=1) if n > 1 else 0
+    if n < 2 or std == 0 or values.min() == values.max():
+        return None
+
+    bandwidth = 1.06 * std * n ** (-1 / 5)
+    x_grid = np.linspace(values.min(), values.max(), 200)
+    diffs = (x_grid[:, None] - values[None, :]) / bandwidth
+    density = np.exp(-0.5 * diffs**2).sum(axis=1) / (n * bandwidth * np.sqrt(2 * np.pi))
+    bin_width = (values.max() - values.min()) / bins
+    return x_grid, density * n * bin_width
+
+
+def base_layout(title: str, height: int = 420) -> dict:
+    return dict(
+        title=dict(text=title, font=dict(color=CHART_TEXT, size=16, family=FONT_FAMILY), x=0.01, xanchor="left"),
+        paper_bgcolor=CHART_BG,
+        plot_bgcolor=CHART_PANEL,
+        font=dict(color=CHART_MUTED, family=FONT_FAMILY, size=12),
+        margin=dict(l=54, r=24, t=56, b=48),
+        height=height,
+        hoverlabel=dict(bgcolor=CHART_PANEL, font_color=CHART_TEXT, bordercolor=CHART_GRID, font_family=FONT_FAMILY),
+        legend=dict(font=dict(color=CHART_MUTED), bgcolor="rgba(0,0,0,0)"),
+        showlegend=False,
+    )
+
+
+def style_axes(fig: go.Figure) -> go.Figure:
+    fig.update_xaxes(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, tickfont=dict(color=CHART_MUTED))
+    fig.update_yaxes(gridcolor=CHART_GRID, zeroline=False, linecolor=CHART_GRID, tickfont=dict(color=CHART_MUTED))
+    return fig
+
+
+def build_donut(counts: pd.Series, title: str) -> go.Figure:
     labels = counts.index.astype(str).tolist()
-    colors = sns.light_palette(CHART_GREEN, n_colors=len(values), reverse=True)
+    values = counts.values.tolist()
+    colors = color_ramp(CHART_GREEN, len(values))
 
-    fig, ax = plt.subplots(figsize=(7.5, 5.4), facecolor=CHART_BG)
-    ax.set_facecolor(CHART_PANEL)
-    wedges, _, autotexts = ax.pie(
-        values,
-        labels=None,
-        autopct=lambda pct: f"{pct:.0f}%" if pct >= 5 else "",
-        startangle=90,
-        colors=colors,
-        pctdistance=0.78,
-        wedgeprops={"width": 0.42, "edgecolor": CHART_PANEL, "linewidth": 2},
-        textprops={"color": CHART_TEXT, "fontsize": 10, "fontweight": "bold"},
+    fig = go.Figure(
+        go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.58,
+            sort=False,
+            marker=dict(colors=colors, line=dict(color=CHART_PANEL, width=2)),
+            textinfo="percent",
+            textfont=dict(color=CHART_TEXT, size=12),
+            hovertemplate="%{label}<br>%{value} студентов (%{percent})<extra></extra>",
+        )
     )
-    ax.legend(
-        wedges,
-        labels,
-        loc="center left",
-        bbox_to_anchor=(1, 0.5),
-        frameon=False,
-        labelcolor=CHART_MUTED,
-        fontsize=10,
+    fig.update_layout(**base_layout(title, height=380))
+    fig.update_layout(showlegend=True, legend=dict(font=dict(color=CHART_MUTED)))
+    return fig
+
+
+def build_heatmap(corr: pd.DataFrame, title: str) -> go.Figure:
+    labels = [DISPLAY_NAMES.get(column, column) for column in corr.columns]
+    z = corr.values
+    text = [[f"{value:.2f}" for value in row] for row in z]
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=z,
+            x=labels,
+            y=labels,
+            zmin=-1,
+            zmax=1,
+            zmid=0,
+            colorscale=[[0, "#9aa081"], [0.5, "#f3e7d0"], [1, CHART_GREEN]],
+            text=text,
+            texttemplate="%{text}",
+            textfont=dict(color=CHART_TEXT, size=11),
+            hovertemplate="%{y} × %{x}: %{z:.3f}<extra></extra>",
+            xgap=2,
+            ygap=2,
+            colorbar=dict(outlinewidth=0, tickfont=dict(color=CHART_MUTED)),
+        )
     )
-    for text in autotexts:
-        text.set_color(CHART_TEXT)
-    ax.set_title(title, color=CHART_TEXT, pad=14)
-    plt.tight_layout()
-    plt.savefig(path, dpi=160, facecolor=CHART_BG, edgecolor="none")
-    plt.close(fig)
+    fig.update_layout(**base_layout(title, height=460))
+    fig.update_yaxes(autorange="reversed")
+    return style_axes(fig)
 
 
-def save_figures(df: pd.DataFrame, columns: dict[str, str | None]) -> list[Path]:
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    sns.set_theme(
-        style="whitegrid",
-        palette=CHART_PALETTE,
-        rc={
-            "figure.facecolor": CHART_BG,
-            "axes.facecolor": CHART_PANEL,
-            "axes.edgecolor": CHART_GRID,
-            "axes.labelcolor": CHART_MUTED,
-            "axes.titlecolor": CHART_TEXT,
-            "grid.color": CHART_GRID,
-            "grid.linewidth": 0.8,
-            "text.color": CHART_TEXT,
-            "xtick.color": CHART_MUTED,
-            "ytick.color": CHART_MUTED,
-        },
+def build_histogram(series: pd.Series, title: str, x_label: str) -> go.Figure:
+    values = pd.to_numeric(series, errors="coerce").dropna().to_numpy()
+    bins = 12
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(
+            x=values,
+            nbinsx=bins,
+            marker=dict(color=CHART_GREEN, line=dict(color=CHART_PANEL, width=1)),
+            name="Студенты",
+            hovertemplate=f"{x_label}: " + "%{x}<br>Студентов: %{y}<extra></extra>",
+        )
     )
-    outputs: list[Path] = []
+    kde = gaussian_kde_line(values, bins)
+    if kde is not None:
+        x_grid, y_kde = kde
+        fig.add_trace(
+            go.Scatter(
+                x=x_grid,
+                y=y_kde,
+                mode="lines",
+                line=dict(color=CHART_BRICK, width=2),
+                name="Плотность",
+                hoverinfo="skip",
+            )
+        )
 
+    fig.update_layout(**base_layout(title))
+    fig.update_layout(bargap=0.05)
+    fig.update_xaxes(title=x_label)
+    fig.update_yaxes(title="Количество студентов")
+    return style_axes(fig)
+
+
+def build_bar(counts: pd.Series, title: str) -> go.Figure:
+    ordered = counts.sort_values(ascending=True)
+    colors = list(reversed(color_ramp(CHART_GREEN, len(ordered))))
+
+    fig = go.Figure(
+        go.Bar(
+            x=ordered.values,
+            y=ordered.index.astype(str),
+            orientation="h",
+            marker=dict(color=colors),
+            hovertemplate="%{y}: %{x} студентов<extra></extra>",
+        )
+    )
+    fig.update_layout(**base_layout(title, height=max(320, 34 * len(ordered) + 120)))
+    fig.update_xaxes(title="Количество студентов")
+    fig.update_yaxes(title=None, gridcolor=CHART_BG)
+    return style_axes(fig)
+
+
+def build_scatter(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> go.Figure:
+    pair = df[[x_col, y_col]].dropna()
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=pair[x_col],
+            y=pair[y_col],
+            mode="markers",
+            marker=dict(color=CHART_GREEN, size=8, opacity=0.45, line=dict(width=0)),
+            name="Студенты",
+            hovertemplate=(
+                f"{DISPLAY_NAMES.get(x_col, x_col)}: "
+                + "%{x}<br>"
+                + f"{DISPLAY_NAMES.get(y_col, y_col)}: "
+                + "%{y}<extra></extra>"
+            ),
+        )
+    )
+    if len(pair) >= 2:
+        slope, intercept = np.polyfit(pair[x_col], pair[y_col], 1)
+        x_line = np.linspace(pair[x_col].min(), pair[x_col].max(), 100)
+        fig.add_trace(
+            go.Scatter(
+                x=x_line,
+                y=slope * x_line + intercept,
+                mode="lines",
+                line=dict(color=CHART_BRICK, width=2),
+                name="Тренд",
+                hoverinfo="skip",
+            )
+        )
+
+    fig.update_layout(**base_layout(title))
+    fig.update_xaxes(title=DISPLAY_NAMES.get(x_col, x_col))
+    fig.update_yaxes(title=DISPLAY_NAMES.get(y_col, y_col))
+    return style_axes(fig)
+
+
+def save_figures(df: pd.DataFrame, columns: dict[str, str | None]) -> list[dict]:
     usage_col = columns.get("usage_hours")
     addiction_col = columns.get("addiction_score")
     mental_col = columns.get("mental_health_score")
@@ -299,107 +423,90 @@ def save_figures(df: pd.DataFrame, columns: dict[str, str | None]) -> list[Path]
         if column and column in df.columns
     ]
 
+    charts: list[dict] = []
+
     if stress_col and stress_col in df.columns:
-        path = FIGURES_DIR / "stress_level_donut.png"
-        save_pie_chart(df[stress_col].value_counts(), "Распределение уровня стресса", path)
-        outputs.append(path)
+        title = "Распределение уровня стресса"
+        charts.append(
+            {
+                "id": "stress_level_donut",
+                "title": title,
+                "kind": "distribution",
+                "fig": build_donut(df[stress_col].value_counts(), title),
+            }
+        )
 
     if purpose_col and purpose_col in df.columns:
-        path = FIGURES_DIR / "purpose_of_use_donut.png"
-        purpose_counts = df[purpose_col].value_counts().head(6)
-        save_pie_chart(purpose_counts, "Цели использования соцсетей", path)
-        outputs.append(path)
+        title = "Цели использования соцсетей"
+        charts.append(
+            {
+                "id": "purpose_of_use_donut",
+                "title": title,
+                "kind": "distribution",
+                "fig": build_donut(df[purpose_col].value_counts().head(6), title),
+            }
+        )
 
     if len(key_numeric) >= 2:
-        plt.figure(figsize=(9, 6), facecolor=CHART_BG)
+        title = "Корреляции ключевых показателей"
         corr = df[key_numeric].corr(numeric_only=True)
-        labels = [DISPLAY_NAMES.get(column, column) for column in corr.columns]
-        corr.index = labels
-        corr.columns = labels
-        heatmap_cmap = LinearSegmentedColormap.from_list(
-            "dashboard_corr",
-            ["#9aa081", "#f3e7d0", CHART_GREEN],
+        charts.append(
+            {
+                "id": "key_correlations_heatmap",
+                "title": title,
+                "kind": "correlation",
+                "fig": build_heatmap(corr, title),
+            }
         )
-        sns.heatmap(
-            corr,
-            annot=True,
-            cmap=heatmap_cmap,
-            center=0,
-            fmt=".2f",
-            linewidths=0.8,
-            linecolor=CHART_BG,
-            cbar_kws={"shrink": 0.82},
-        )
-        plt.title("Корреляции ключевых показателей")
-        path = FIGURES_DIR / "key_correlations_heatmap.png"
-        save_current_figure(path)
-        outputs.append(path)
 
     if usage_col and usage_col in df.columns:
-        plt.figure(figsize=(9, 5), facecolor=CHART_BG)
-        sns.histplot(
-            df[usage_col].dropna(),
-            bins=12,
-            kde=True,
-            color=CHART_GREEN,
-            edgecolor=CHART_PANEL,
-            line_kws={"color": CHART_BRICK, "linewidth": 2.7},
+        title = "Ежедневное использование социальных сетей"
+        charts.append(
+            {
+                "id": "usage_hours_distribution",
+                "title": title,
+                "kind": "distribution",
+                "fig": build_histogram(df[usage_col], title, "Часов в день"),
+            }
         )
-        plt.title("Ежедневное использование социальных сетей")
-        plt.xlabel("Часов в день")
-        plt.ylabel("Количество студентов")
-        path = FIGURES_DIR / "usage_hours_distribution.png"
-        save_current_figure(path)
-        outputs.append(path)
 
     if platform_col and platform_col in df.columns:
         top_platforms = df[platform_col].value_counts().head(10)
         if not top_platforms.empty:
-            plt.figure(figsize=(10, 5), facecolor=CHART_BG)
-            platform_palette = sns.light_palette(CHART_GREEN, n_colors=len(top_platforms), reverse=True)
-            sns.barplot(
-                x=top_platforms.values,
-                y=top_platforms.index,
-                palette=platform_palette,
-                hue=top_platforms.index,
-                legend=False,
+            title = "Самые популярные платформы"
+            charts.append(
+                {
+                    "id": "platform_distribution",
+                    "title": title,
+                    "kind": "distribution",
+                    "fig": build_bar(top_platforms, title),
+                }
             )
-            plt.title("Самые популярные платформы")
-            plt.xlabel("Количество студентов")
-            plt.ylabel("Платформа")
-            path = FIGURES_DIR / "platform_distribution.png"
-            save_current_figure(path)
-            outputs.append(path)
 
     scatter_pairs = [
-        (usage_col, addiction_col, "Время в соцсетях и показатель зависимости", "usage_vs_addiction.png"),
-        (sleep_col, mental_col, "Сон и показатель ментального здоровья", "sleep_vs_mental_health.png"),
-        (usage_col, mental_col, "Время в соцсетях и показатель ментального здоровья", "usage_vs_mental_health.png"),
-        (usage_col, study_col, "Время в соцсетях и время учебы", "usage_vs_study_hours.png"),
+        (usage_col, addiction_col, "Время в соцсетях и показатель зависимости", "usage_vs_addiction"),
+        (sleep_col, mental_col, "Сон и показатель ментального здоровья", "sleep_vs_mental_health"),
+        (usage_col, mental_col, "Время в соцсетях и показатель ментального здоровья", "usage_vs_mental_health"),
+        (usage_col, study_col, "Время в соцсетях и время учебы", "usage_vs_study_hours"),
         (
             activity_col,
             mental_col,
             "Физическая активность и показатель ментального здоровья",
-            "activity_vs_mental_health.png",
+            "activity_vs_mental_health",
         ),
     ]
-    for x_col, y_col, title, filename in scatter_pairs:
+    for x_col, y_col, title, chart_id in scatter_pairs:
         if x_col and y_col and x_col in df.columns and y_col in df.columns:
-            plt.figure(figsize=(8, 5), facecolor=CHART_BG)
-            sns.regplot(
-                data=df,
-                x=x_col,
-                y=y_col,
-                color=CHART_BRICK,
-                scatter_kws={"alpha": 0.42, "s": 25, "color": CHART_GREEN, "edgecolor": "none"},
-                line_kws={"color": CHART_BRICK, "linewidth": 2.7},
+            charts.append(
+                {
+                    "id": chart_id,
+                    "title": title,
+                    "kind": "relationship",
+                    "fig": build_scatter(df, x_col, y_col, title),
+                }
             )
-            plt.title(title)
-            path = FIGURES_DIR / filename
-            save_current_figure(path)
-            outputs.append(path)
 
-    return outputs
+    return charts
 
 
 def format_number(value: float, digits: int = 2) -> str:
@@ -429,7 +536,7 @@ def build_html_dashboard(
     df: pd.DataFrame,
     csv_path: Path,
     columns: dict[str, str | None],
-    figure_outputs: list[Path],
+    figure_outputs: list[dict],
 ) -> Path:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     path = REPORTS_DIR / "dashboard.html"
@@ -549,30 +656,21 @@ def build_html_dashboard(
             )
 
     figure_cards = []
-    figure_titles = {
-        "stress_level_donut.png": "Уровень стресса",
-        "purpose_of_use_donut.png": "Цели использования",
-        "key_correlations_heatmap.png": "Корреляции",
-        "usage_hours_distribution.png": "Распределение времени в соцсетях",
-        "platform_distribution.png": "Популярные платформы",
-        "sleep_vs_mental_health.png": "Сон и ментальное здоровье",
-        "usage_vs_mental_health.png": "Соцсети и ментальное здоровье",
-        "usage_vs_study_hours.png": "Соцсети и учеба",
-        "activity_vs_mental_health.png": "Активность и ментальное здоровье",
-    }
-    for figure in figure_outputs:
-        rel = figure.relative_to(REPORTS_DIR)
-        title = figure_titles.get(figure.name, figure.stem.replace("_", " ").title())
-        kind = "relationship"
-        if "donut" in figure.name or "distribution" in figure.name:
-            kind = "distribution"
-        if "heatmap" in figure.name:
-            kind = "correlation"
+    plotly_config = {"displayModeBar": False, "responsive": True}
+    include_plotlyjs: bool | str = "cdn"
+    for chart in figure_outputs:
+        chart_html = chart["fig"].to_html(
+            full_html=False,
+            include_plotlyjs=include_plotlyjs,
+            config=plotly_config,
+            div_id=chart["id"],
+        )
+        include_plotlyjs = False
         figure_cards.append(
             f"""
-            <article class="chart-card" data-kind="{kind}">
-                <h3>{escape(title)}</h3>
-                <img src="{escape(str(rel))}" alt="{escape(title)}">
+            <article class="chart-card" data-kind="{chart['kind']}">
+                <h3>{escape(chart['title'])}</h3>
+                {chart_html}
             </article>
             """
         )
@@ -692,7 +790,6 @@ def build_html_dashboard(
             border-radius: 8px;
         }}
         .insight {{
-            padding: 18px;
             border-left: 5px solid var(--accent);
             min-height: 116px;
             transition: transform .2s ease, background .2s ease;
@@ -701,23 +798,43 @@ def build_html_dashboard(
             transform: translateY(-2px);
             background: #fffdf8;
         }}
-        .insight summary {{
+        .insight-toggle {{
+            all: unset;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            padding: 18px;
             cursor: pointer;
             color: var(--accent-3);
+            font: inherit;
             font-weight: 750;
-            list-style: none;
         }}
-        .insight summary::-webkit-details-marker {{ display: none; }}
-        .insight summary::after {{
-            content: "+";
-            float: right;
+        .insight-icon {{
+            flex: none;
             color: var(--accent);
             font-size: 20px;
             line-height: 1;
+            transition: transform .25s ease;
         }}
-        .insight[open] summary::after {{ content: "-"; }}
-        .insight p {{
-            margin: 12px 0 0;
+        .insight-toggle[aria-expanded="true"] .insight-icon {{
+            transform: rotate(45deg);
+        }}
+        .insight-panel {{
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows .25s ease;
+        }}
+        .insight-panel.is-open {{
+            grid-template-rows: 1fr;
+        }}
+        .insight-panel-inner {{
+            overflow: hidden;
+        }}
+        .insight-panel-inner p {{
+            margin: 0 18px 18px;
             color: var(--muted);
         }}
         .chart-controls {{
@@ -764,12 +881,9 @@ def build_html_dashboard(
             margin: 0 0 12px;
             font-size: 17px;
         }}
-        .chart-card img {{
-            display: block;
-            width: 100%;
-            height: auto;
+        .chart-card .js-plotly-plot, .chart-card .plotly-graph-div {{
+            width: 100% !important;
             border-radius: 6px;
-            border: 1px solid #edf0ec;
         }}
         .tables {{
             display: grid;
@@ -823,7 +937,18 @@ def build_html_dashboard(
 
         <h2 class="section-title">Ключевые наблюдения</h2>
         <section class="insights">
-            {"".join(f'<details class="insight"><summary>{escape(title)}</summary><p>{escape(detail)}</p></details>' for title, detail in insights)}
+            {"".join(
+                f'''<article class="insight">
+                    <button class="insight-toggle" type="button" aria-expanded="false">
+                        <span>{escape(title)}</span>
+                        <span class="insight-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="insight-panel">
+                        <div class="insight-panel-inner"><p>{escape(detail)}</p></div>
+                    </div>
+                </article>'''
+                for title, detail in insights
+            )}
         </section>
 
         <h2 class="section-title">Графики</h2>
@@ -873,6 +998,14 @@ def build_html_dashboard(
             }});
         }}
 
+        document.querySelectorAll(".insight-toggle").forEach((button) => {{
+            button.addEventListener("click", () => {{
+                const expanded = button.getAttribute("aria-expanded") === "true";
+                button.setAttribute("aria-expanded", String(!expanded));
+                button.nextElementSibling.classList.toggle("is-open", !expanded);
+            }});
+        }});
+
         document.querySelectorAll(".chart-controls button").forEach((button) => {{
             button.addEventListener("click", () => {{
                 const filter = button.dataset.filter;
@@ -896,7 +1029,7 @@ def build_markdown_report(
     csv_path: Path,
     columns: dict[str, str | None],
     table_outputs: dict[str, Path],
-    figure_outputs: list[Path],
+    figure_outputs: list[dict],
 ) -> Path:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     path = REPORTS_DIR / "analysis_report.md"
@@ -986,7 +1119,9 @@ def build_markdown_report(
         "",
         "## Сгенерированные графики",
         "",
-        *(f"- `{output.relative_to(PROJECT_ROOT)}`" for output in figure_outputs),
+        "Интерактивные графики (Plotly) встроены в `reports/dashboard.html`:",
+        "",
+        *(f"- {chart['title']}" for chart in figure_outputs),
         "",
     ]
     path.write_text("\n".join(content), encoding="utf-8")
