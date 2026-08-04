@@ -19,9 +19,8 @@
 │   └── processed/               # обработанные данные и результаты анализа
 │
 ├── reports/
-│   ├── figures/                 # графики
 │   ├── analysis_report.md       # отчёт по результатам анализа
-│   └── dashboard.html           # HTML-дашборд
+│   └── dashboard.html           # интерактивный HTML-дашборд (Plotly)
 │
 ├── scripts/
 │   └── download_data.py         # загрузка данных из Kaggle
@@ -107,5 +106,5 @@ reports/
 * Python
 * Pandas
 * NumPy
-* Matplotlib
+* Plotly
 * KaggleHub
