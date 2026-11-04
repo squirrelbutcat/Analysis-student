@@ -1023,111 +1023,6 @@ def build_html_dashboard(
     path.write_text(html, encoding="utf-8")
     return path
 
-
-def build_markdown_report(
-    df: pd.DataFrame,
-    csv_path: Path,
-    columns: dict[str, str | None],
-    table_outputs: dict[str, Path],
-    figure_outputs: list[dict],
-) -> Path:
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = REPORTS_DIR / "analysis_report.md"
-
-    numeric_columns = df.select_dtypes(include="number").columns.tolist()
-    missing_share = (df.isna().mean().sort_values(ascending=False) * 100).round(1)
-    missing_lines = [f"- `{column}`: {value}%" for column, value in missing_share.head(10).items()]
-
-    insights: list[str] = []
-    usage_col = columns.get("usage_hours")
-    addiction_col = columns.get("addiction_score")
-    mental_col = columns.get("mental_health_score")
-    sleep_col = columns.get("sleep_hours")
-    study_col = columns.get("study_hours")
-    activity_col = columns.get("physical_activity_hours")
-    daily_unlocks_col = columns.get("daily_unlocks")
-    platform_col = columns.get("platform")
-
-    if usage_col and usage_col in df.columns:
-        insights.append(f"- Среднее ежедневное использование соцсетей: {df[usage_col].mean():.2f} часа.")
-    if addiction_col and addiction_col in df.columns:
-        insights.append(f"- Средний показатель зависимости: {df[addiction_col].mean():.2f}.")
-    if mental_col and mental_col in df.columns:
-        insights.append(f"- Средний показатель ментального здоровья: {df[mental_col].mean():.2f}.")
-    if sleep_col and sleep_col in df.columns:
-        insights.append(f"- Средняя длительность сна: {df[sleep_col].mean():.2f} часа.")
-    if study_col and study_col in df.columns:
-        insights.append(f"- Среднее время учебы: {df[study_col].mean():.2f} часа.")
-    if activity_col and activity_col in df.columns:
-        insights.append(f"- Средняя физическая активность: {df[activity_col].mean():.2f} часа.")
-    if daily_unlocks_col and daily_unlocks_col in df.columns:
-        insights.append(f"- Среднее количество разблокировок телефона в день: {df[daily_unlocks_col].mean():.1f}.")
-    if platform_col and platform_col in df.columns and not df[platform_col].dropna().empty:
-        top_platform = df[platform_col].mode(dropna=True).iloc[0]
-        insights.append(f"- Самая распространенная платформа: {top_platform}.")
-    if usage_col and sleep_col and mental_col and usage_col in df.columns and sleep_col in df.columns and mental_col in df.columns:
-        usage_sleep_corr = df[[usage_col, sleep_col]].corr(numeric_only=True).iloc[0, 1]
-        usage_mental_corr = df[[usage_col, mental_col]].corr(numeric_only=True).iloc[0, 1]
-        insights.append(
-            "- В данных есть сильная отрицательная корреляция: больше времени в соцсетях связано "
-            f"с меньшим сном (`{usage_sleep_corr:.3f}`) и более низким показателем ментального здоровья "
-            f"(`{usage_mental_corr:.3f}`). Это связь в данных, а не доказательство причинности."
-        )
-
-    key_columns = [
-        column
-        for column in [usage_col, daily_unlocks_col, addiction_col, mental_col, sleep_col, study_col, activity_col]
-        if column and column in df.columns
-    ]
-    if len(key_columns) >= 2:
-        corr = df[key_columns].corr(numeric_only=True)
-        if not corr.empty:
-            pairs = []
-            for left_index, left in enumerate(corr.columns):
-                for right in corr.columns[left_index + 1 :]:
-                    pairs.append((abs(corr.loc[left, right]), left, right, corr.loc[left, right]))
-            if pairs:
-                _, left, right, value = max(pairs)
-                insights.append(f"- Самая сильная ключевая корреляция: `{left}` и `{right}` = {value:.3f}.")
-
-    content = [
-        "# Анализ влияния социальных сетей на студентов",
-        "",
-        f"Исходный файл: `{csv_path}`",
-        f"Строк: {len(df):,}",
-        f"Колонок: {len(df.columns):,}",
-        "",
-        "## Использованные колонки",
-        "",
-        *[f"- `{logical}` -> `{actual}`" for logical, actual in columns.items() if actual],
-        "",
-        "## Краткие выводы",
-        "",
-        *(insights or ["- Ключевые колонки не обнаружены. Проверьте названия колонок в исходном файле."]),
-        "",
-        "## Пропущенные значения",
-        "",
-        *(missing_lines or ["- Колонки не найдены."]),
-        "",
-        "## Числовые колонки",
-        "",
-        *(f"- `{column}`" for column in numeric_columns),
-        "",
-        "## Сгенерированные таблицы",
-        "",
-        *(f"- `{output.relative_to(PROJECT_ROOT)}`" for output in table_outputs.values()),
-        "",
-        "## Сгенерированные графики",
-        "",
-        "Интерактивные графики (Plotly) встроены в `reports/dashboard.html`:",
-        "",
-        *(f"- {chart['title']}" for chart in figure_outputs),
-        "",
-    ]
-    path.write_text("\n".join(content), encoding="utf-8")
-    return path
-
-
 def run_analysis(input_path: Path | None = None) -> Path:
     csv_path = find_csv(input_path)
     raw_df = read_dataset(csv_path)
@@ -1140,14 +1035,13 @@ def run_analysis(input_path: Path | None = None) -> Path:
 
     tables = save_summary_tables(df, columns)
     figures = save_figures(df, columns)
-    report_path = build_markdown_report(df, csv_path, columns, tables, figures)
     dashboard_path = build_html_dashboard(df, csv_path, columns, figures)
 
     print(f"Загружен файл: {csv_path}")
     print(f"Очищенный датасет: {cleaned_path}")
-    print(f"Отчет: {report_path}")
     print(f"Дашборд: {dashboard_path}")
-    return report_path
+
+    return dashboard_path
 
 
 def parse_args() -> argparse.Namespace:
