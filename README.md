@@ -19,8 +19,11 @@
 │   └── processed/               # обработанные данные и результаты анализа
 │
 ├── reports/
-│   ├── analysis_report.md       # отчёт по результатам анализа
 │   └── dashboard.html           # интерактивный HTML-дашборд (Plotly)
+│
+├── notebooks/
+│   └── student_social_media_sql_analysis.ipynb
+│                                  # визуализация и SQL-анализ на SQLite
 │
 ├── scripts/
 │   └── download_data.py         # загрузка данных из Kaggle
@@ -84,12 +87,36 @@ python src/student_analysis/analyze.py --input путь_к_файлу.csv
 * итоговый Markdown-отчёт;
 * HTML-дашборд.
 
+Отдельно notebook создаёт локальную SQLite-базу `data/processed/student_mental_health.sqlite` и сохраняет в себе результаты SQL-запросов и графики.
+
 Результаты сохраняются в папках:
 
 ```text
 data/processed/
 reports/
 ```
+
+## Jupyter Notebook и SQL
+
+Notebook [student_social_media_sql_analysis.ipynb](notebooks/student_social_media_sql_analysis.ipynb) объединяет Pandas-визуализации и SQL-анализ с SQLite. В нем есть восемь SQL-задач:
+
+* средние показатели по уровню стресса;
+* платформы с наибольшим средним временем использования;
+* сравнение групп по времени в соцсетях;
+* страны с наивысшим показателем ментального здоровья;
+* проверка пропусков;
+* различия по полу;
+* цели использования соцсетей и доля высокого стресса;
+* группы по числу разблокировок телефона.
+
+Запустить JupyterLab из корня проекта:
+
+```bash
+source .venv/bin/activate
+jupyter lab
+```
+
+После этого откройте `notebooks/student_social_media_sql_analysis.ipynb` и выполните ячейки сверху вниз.
 
 ## Вопросы анализа
 
@@ -107,4 +134,7 @@ reports/
 * Pandas
 * NumPy
 * Plotly
+* Matplotlib и Seaborn
+* SQLite
+* JupyterLab
 * KaggleHub

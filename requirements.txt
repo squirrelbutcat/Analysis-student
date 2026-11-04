@@ -1,4 +1,7 @@
 pandas>=2.2
 numpy>=2.0
+matplotlib>=3.9
+seaborn>=0.13
 plotly>=6.0
 kagglehub>=0.3
+jupyterlab>=4.3
